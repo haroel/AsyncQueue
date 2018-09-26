@@ -1,5 +1,5 @@
 # AsyncQueue
-TypeScript异步任务队列库。
+纯TypeScript写的轻量级异步任务队列库。
 
 🌰
 
