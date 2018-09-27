@@ -9,6 +9,9 @@
  * 目的：用于处理一组串联式的异步任务队列。
  * 
  */
+
+export type AsyncCallback = (next: Function, params: any,args:any)=>void;
+
 interface AsyncTask{
     /**
      * 任务ID
@@ -19,7 +22,7 @@ interface AsyncTask{
      * params: push时传入的参数
      * args: 上个任务传来的参数
      */
-   callback:(next: Function, params: any,args:any)=>void;
+   callbacks:Array<AsyncCallback>;
    /**
      * 任务参数
      */
@@ -61,15 +64,27 @@ export class AsyncQueue{
     * 任务队列完成回调
     */
    public complete:Function = null;
+
    /**
     * push一个异步任务到队列中
     */
-   public push( callback: (next: Function, params: any , args:any )=>void , params:any = null ){
+   public push( callback: AsyncCallback , params:any = null ){
        this._queues.push({
            uuid : AsyncQueue._$uuid_count++,
-           callback: callback,
+           callbacks: [callback],
            params:params
        })
+   }
+
+   /**
+    * push多个任务，多个任务函数会同时执行,
+    */
+   public pushMulti( params:any , ...callbacks:AsyncCallback[]  ){
+        this._queues.push({
+            uuid : AsyncQueue._$uuid_count++,
+            callbacks: callbacks,
+            params: params
+        })
    }
    /**
     * 队列长度
@@ -137,29 +152,47 @@ export class AsyncQueue{
     * 开始运行队列
     */
    public play( args:any = null ){
-       if (this.isProcessing){
-           return;
-       }
-       if (!this._enable){
-           return;
-       }
-       let actionData:AsyncTask = this._queues.shift();
-       if (actionData){
-           this._debugModeInfo = actionData;
-           let taskUUID:number = actionData.uuid;
-           this._isProcessingTaskUUID = taskUUID;
-           let func = ( previousArgs:any = null )=>{
-               this.next( taskUUID ,previousArgs );
-           }
-           actionData.callback( func , actionData.params, args );
-       }else{
-           this._isProcessingTaskUUID = 0;
-           this._debugModeInfo = null;
-           // cc.log("任务完成")
-           if (this.complete){
-               this.complete(args);
-           }
-       }
+        if (this.isProcessing){
+            return;
+        }
+        if (!this._enable){
+            return;
+        }
+        let actionData:AsyncTask = this._queues.shift();
+        if (actionData){
+                this._debugModeInfo = actionData;
+                let taskUUID:number = actionData.uuid;
+                this._isProcessingTaskUUID = taskUUID;
+                let callbacks:Array<AsyncCallback> = actionData.callbacks;
+                
+                if (callbacks.length == 1){
+                    let nextFunc = ( nextArgs:any = null )=>{
+                        this.next( taskUUID , nextArgs );
+                    }
+                    callbacks[0]( nextFunc , actionData.params, args );
+                }else {
+                    // 多个任务函数同时执行
+                    let fnum:number = callbacks.length;
+                    let nextArgsArr = [];
+                    let nextFunc:Function = (nextArgs:any = null)=>{
+                        --fnum;
+                        nextArgsArr.push(nextArgs || null );
+                        if ( fnum === 0){
+                            this.next( taskUUID , nextArgsArr );
+                        }
+                    }
+                    for (let i=0;i<fnum;i++){
+                        callbacks[i]( nextFunc , actionData.params, args );
+                    }
+                }
+        }else{
+            this._isProcessingTaskUUID = 0;
+            this._debugModeInfo = null;
+            // cc.log("任务完成")
+            if (this.complete){
+                this.complete(args);
+            }
+        }
    }
 
    /**
@@ -168,16 +201,16 @@ export class AsyncQueue{
     * @param callback （可选参数）时间到了之后回调
     */
    public yieldTime(time:number,callback:Function = null){
-       let task = function ( next:Function,params:any){
+       let task = function ( next:Function,params:any,args:any){
            let _t = setTimeout( ()=>{
                clearTimeout(_t);
                if (callback){
                    callback();
                }
-               next();
+               next(args);
            } ,time);
        }
-       this.push(task,{des:"delay_Time"});
+       this.push(task,{des:"AsyncQueue.yieldTime"});
    }
 
    /**
