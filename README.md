@@ -1,14 +1,17 @@
 # AsyncQueue
-纯TypeScript写的轻量级异步任务队列库。
+
+> 纯TypeScript 轻量级异步任务队列库。
 
 🌰
 
         let asyncQueue:AsyncQueue = new AsyncQueue();
+	
         // 最简洁的调用，push一个延时50毫秒的回调任务，每一个异步任务的next必须调用。
         asyncQueue.push( (next:Function)=>{
             // TODO
             setTimeout(next, 50);
         })
+	
         // 传入一个params参数对象
         asyncQueue.push( (next:Function,params:any,args:any)=>{
             let _delay = params["delay"];
@@ -34,7 +37,7 @@
             console.log(args);
         }
         
-        // 开始运行
+        // 运行
         asyncQueue.play();
       
 
