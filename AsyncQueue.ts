@@ -8,7 +8,10 @@
  * 目的：用于处理一组串联式的异步任务队列。
  */
 
-export type AsyncCallback = (next: Function, params: any,args:any)=>void;
+
+export type NextFunction = ( nextArgs?:any )=>void;
+
+export type AsyncCallback = (next: NextFunction, params: any,args:any)=>void;
 
 interface AsyncTask{
     /**
@@ -34,7 +37,10 @@ export class AsyncQueue{
    private static _$uuid_count:number = 1;
 
    private _queues:Array<AsyncTask > = [];
-   
+
+   public get queues():Array<AsyncTask > {
+       return this._queues;
+   }
    // 正在执行的异步任务标识
    private _isProcessingTaskUUID:number = 0;
 
@@ -152,7 +158,7 @@ export class AsyncQueue{
            this._runningAsyncTask = null;
            this.play( args ); 
        }else{
-           cc.warn("[AsyncQueue] 错误警告：正在执行的任务和完成的任务标识不一致，有可能是next重复执行！ProcessingTaskUUID："+this._isProcessingTaskUUID + " nextUUID:"+taskUUID)
+        //    cc.warn("[AsyncQueue] 错误警告：正在执行的任务和完成的任务标识不一致，有可能是next重复执行！ProcessingTaskUUID："+this._isProcessingTaskUUID + " nextUUID:"+taskUUID)
            if (this._runningAsyncTask){
                cc.log(this._runningAsyncTask);
            }
@@ -184,7 +190,7 @@ export class AsyncQueue{
                 let callbacks:Array<AsyncCallback> = actionData.callbacks;
                 
                 if (callbacks.length == 1){
-                    let nextFunc = ( nextArgs:any = null )=>{
+                    let nextFunc:NextFunction = ( nextArgs:any = null )=>{
                         this.next( taskUUID , nextArgs );
                     }
                     callbacks[0]( nextFunc , actionData.params, args );
@@ -192,7 +198,7 @@ export class AsyncQueue{
                     // 多个任务函数同时执行
                     let fnum:number = callbacks.length;
                     let nextArgsArr = [];
-                    let nextFunc:Function = (nextArgs:any = null)=>{
+                    let nextFunc:NextFunction = (nextArgs:any = null)=>{
                         --fnum;
                         nextArgsArr.push(nextArgs || null );
                         if ( fnum === 0){
