@@ -28,6 +28,18 @@
                 next( "complete" );
             } , _delay );
         });
+	// 同时处理多个异步任务，全部完成后，跳转下一步
+	asyncQueue.pushMulti({name:"abc"}, (next:Function,params:any,args:any)=>{
+            let _delay = args;
+            setTimeout( ()=>{
+                next( "completeA" );
+            } ,  2 );
+        }, (next:Function,params:any,args:any)=>{
+            let _delay = args;
+            setTimeout( ()=>{
+                next( "completeB" );
+            } , 4 );
+        } );
         
         // 延时333毫秒然后执行下一步
         asyncQueue.yieldTime(333);
