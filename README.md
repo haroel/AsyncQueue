@@ -41,6 +41,20 @@
             } , 4 );
         } );
         
+	// 同时push多个任务，可以设定第三个参数，即任务执行优先级，数值越大越优先执行
+	asyncQueue.push( (next:Function)=>{
+            // TODO
+            setTimeout(next, 50);
+        },null,1)
+	asyncQueue.push( (next:Function)=>{
+            // TODO
+            setTimeout(next, 50);
+        },null,2)
+	asyncQueue.push( (next:Function)=>{
+            // TODO
+            setTimeout(next, 50);
+        },null,3)
+	
         // 延时333毫秒然后执行下一步
         asyncQueue.yieldTime(333);
         
@@ -49,7 +63,7 @@
             console.log(args);
         }
         
-        // 运行
+        // 运行, 必须执行play方法才会运行
         asyncQueue.play();
       
 
@@ -57,10 +71,10 @@
 
 		asyncQueue.enable = false;
 
-也可以开启有效，它将自动进行下一个任务
+也可以开启有效，它将内部判断是否自动进行下一个任务
 
 		asyncQueue.enable = false;
 		
-如果当前任务始终无法执行完成（比如数据发给服务器，但服务器错误，无法获取结果），还可以调用step方法来跳过当前正在运行的任务。
+如果当前任务始终无法执行完成（比如数据发给服务器，但服务器错误，无法获取结果），也就是next没有执行时机，可以调用step方法来强行跳过当前正在运行的任务。
 
      
