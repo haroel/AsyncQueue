@@ -1,9 +1,8 @@
-# AsyncQueue
 
-> 纯TypeScript 轻量级异步任务队列库。
+一个纯TS的轻量级异步任务队列库 AsyncQueue和ParallelQueue 
 
-🌰
-
+## AsyncQueue
+	串行执行任务
         let asyncQueue:AsyncQueue = new AsyncQueue();
 	
         // 最简洁的调用，push一个延时50毫秒的回调任务，每一个异步任务的next必须调用。
@@ -76,5 +75,26 @@
 		asyncQueue.enable = false;
 		
 如果当前任务始终无法执行完成（比如数据发给服务器，但服务器错误，无法获取结果），也就是next没有执行时机，可以调用step方法来强行跳过当前正在运行的任务。
+
+
+## ParallelQueue
+ // 按指定的并行数同时执行多个任务 
+
+一个示例
+
+               /**
+         * 有5个任务需要执行，由于系统限制，同时执行的任务不能超过3个
+         */
+        let tasks = [100, 200, 300, 450, 600]; // 任务数组耗时毫秒数
+        let pQueue = new ParallelQueue<number>(2);
+        pQueue.play(tasks, (taskIndex: number, taskValue: number, workerIndex, next) => {
+            console.log(`执行任务索引${taskIndex} 任务值${taskValue}  Worker: ${workerIndex}`)
+            setTimeout(next, taskValue);
+        });
+        pQueue.complete = () => {
+            console.log(" 总耗时 ", (Date.now() - t) )
+        }
+	
+	
 
      
