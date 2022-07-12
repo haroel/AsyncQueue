@@ -47,13 +47,17 @@ class AsyncQueue {
      * push一个异步任务到队列中
      * 返回任务uuid
      */
-    push(callback, params = null) {
+    push(callback, params = null,priority:number = 0) {
         let uuid = _$uuid_count++;
         this._queues.push({
             uuid: uuid,
             callbacks: [callback],
-            params: params
+            params: params,
+            priority:priority
         })
+        this._queues.sort((a, b) => {
+            return b.priority - a.priority;
+        } )
         return uuid;
     }
 
@@ -66,8 +70,12 @@ class AsyncQueue {
         this._queues.push({
             uuid: uuid,
             callbacks: callbacks,
-            params: params
+            params: params,
+            priority:0
         })
+        this._queues.sort((a, b) => {
+            return b.priority - a.priority;
+        } )
         return uuid;
     }
 
