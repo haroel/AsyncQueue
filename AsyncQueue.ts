@@ -11,7 +11,7 @@
 
 export type NextFunction = (nextArgs?: any) => void;
 
-export type AsyncCallback = (next: NextFunction, params: any, args: any) => void;
+export type AsyncCallback = (next: (nextArgs?: any) => void, params: any, args: any) => void;
 
 interface AsyncTask {
     /**
@@ -27,9 +27,17 @@ interface AsyncTask {
     /**
       * 任务参数
       */
-    params: any
+    params: any,
+    /**
+     * 优先级
+     */
+    priority:number
 }
 export class AsyncQueue {
+    /**
+     * 全局开关
+     */
+    public static globalEnable = true;
     // 正在运行的任务
     private _runningAsyncTask: AsyncTask = null;
 
@@ -69,17 +77,39 @@ export class AsyncQueue {
      */
     public complete: Function = null;
 
+    private _timeoutId: number = -1;
+    public logprint() {
+        let desc = {
+            running: "",
+            queues:[]
+        }
+        if (this._runningAsyncTask.params && this._runningAsyncTask.params["des"]) {
+            desc.running = this._runningAsyncTask.params["des"];
+        }
+        for (let qqqq of this._queues) {
+            if (qqqq.params) {
+                desc.queues.push(qqqq.params["desc"]);
+            } else {
+                desc.queues.push('');
+            }
+        }
+        return desc;
+    }
     /**
      * push一个异步任务到队列中
      * 返回任务uuid
      */
-    public push(callback: AsyncCallback, params: any = null): number {
+    public push(callback: AsyncCallback, params: any = null,priority:number = 0): number {
         let uuid = AsyncQueue._$uuid_count++;
         this._queues.push({
             uuid: uuid,
             callbacks: [callback],
-            params: params
+            params: params,
+            priority:priority
         })
+        this._queues.sort((a, b) => {
+            return b.priority - a.priority;
+        } )
         return uuid;
     }
 
@@ -92,15 +122,19 @@ export class AsyncQueue {
         this._queues.push({
             uuid: uuid,
             callbacks: callbacks,
-            params: params
+            params: params,
+            priority:0
         })
+        this._queues.sort((a, b) => {
+            return b.priority - a.priority;
+        } )
         return uuid;
     }
 
     /** 移除一个还未执行的异步任务 */
     public remove(uuid: number) {
         if (this._runningAsyncTask.uuid === uuid) {
-            cc.warn("正在执行的任务不可以移除");
+            console.log("正在执行的任务不可以移除");
             return;
         }
         for (let i = 0; i < this._queues.length; i++) {
@@ -149,9 +183,14 @@ export class AsyncQueue {
         this._queues = [];
         this._isProcessingTaskUUID = 0;
         this._runningAsyncTask = null;
+        this._timeoutId > 0 && clearTimeout(this._timeoutId);
+        this._timeoutId = -1;
     }
 
     protected next(taskUUID: number, args: any = null) {
+        if (!AsyncQueue.globalEnable) {
+            return;
+        }
         // cc.log("完成一个任务")
         if (this._isProcessingTaskUUID === taskUUID) {
             this._isProcessingTaskUUID = 0;
@@ -160,7 +199,7 @@ export class AsyncQueue {
         } else {
             //    cc.warn("[AsyncQueue] 错误警告：正在执行的任务和完成的任务标识不一致，有可能是next重复执行！ProcessingTaskUUID："+this._isProcessingTaskUUID + " nextUUID:"+taskUUID)
             if (this._runningAsyncTask) {
-                cc.log(this._runningAsyncTask);
+                console.log(this._runningAsyncTask);
             }
         }
     }
@@ -182,13 +221,12 @@ export class AsyncQueue {
         if (!this._enable) {
             return;
         }
-        let actionData: AsyncTask = this._queues.shift();
+        let actionData: AsyncTask = this._queues.shift(); // 异步队列
         if (actionData) {
             this._runningAsyncTask = actionData;
             let taskUUID: number = actionData.uuid;
             this._isProcessingTaskUUID = taskUUID;
             let callbacks: Array<AsyncCallback> = actionData.callbacks;
-
             if (callbacks.length == 1) {
                 let nextFunc: NextFunction = (nextArgs: any = null) => {
                     this.next(taskUUID, nextArgs);
@@ -200,6 +238,7 @@ export class AsyncQueue {
                 let nextArgsArr = [];
                 let nextFunc: NextFunction = (nextArgs: any = null) => {
                     --fnum;
+                    // console.warn("fnum",fnum)
                     nextArgsArr.push(nextArgs || null);
                     if (fnum === 0) {
                         this.next(taskUUID, nextArgsArr);
@@ -226,16 +265,20 @@ export class AsyncQueue {
      * @param callback （可选参数）时间到了之后回调
      */
     public yieldTime(time: number, callback: Function = null) {
+        let self = this;
         let task = function (next: Function, params: any, args: any) {
             let _t = setTimeout(() => {
                 clearTimeout(_t);
+                self._timeoutId = -1;
+                self = null;
                 if (callback) {
                     callback();
                 }
                 next(args);
             }, time);
+            self._timeoutId = _t;
         }
-        this.push(task, { des: "AsyncQueue.yieldTime" });
+        this.push(task, { des: "AsyncQueue.yieldTime" + time });
     }
 
     /**
